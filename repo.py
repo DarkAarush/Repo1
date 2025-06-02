@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TELEGRAM_BOT_TOKEN = "7183336129:AAGC7Cj0fXjMQzROUXMZHnb0pyXQQqneMic"
-LOGS_CHAT_ID = -1001902619247
+LOGS_CHAT_ID = -1002651647672
 
 def get_heroku_apps(api_key):
     url = "https://api.heroku.com/apps"
